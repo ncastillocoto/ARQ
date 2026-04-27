@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador de Podios — Ruta de Campeones Progrentis</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800;900&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#08081a;color:#fff;font-family:'Montserrat',sans-serif;min-height:100vh;overflow-x:hidden}
+
+.app-bar{background:linear-gradient(135deg,#12123a,#0a0a26);height:62px;padding:0 28px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:300}
+.app-bar h1{font-family:'Bebas Neue',sans-serif;font-size:1.55rem;letter-spacing:3px;background:linear-gradient(90deg,#ffd700,#ff8c00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap}
+.app-bar-sub{color:rgba(255,255,255,.3);font-size:.65rem;white-space:nowrap}
+.app-bar-sep{width:1px;height:26px;background:rgba(255,255,255,.08);flex-shrink:0}
+.app-status{font-size:.7rem;color:rgba(255,255,255,.4);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.app-bar-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+
+.btn{padding:8px 18px;border:none;border-radius:8px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:.72rem;cursor:pointer;transition:.2s;text-transform:uppercase;letter-spacing:.7px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:disabled{opacity:.3;cursor:not-allowed;pointer-events:none}
+.btn-gold{background:linear-gradient(135deg,#ffd700,#ff8c00);color:#1a1a3e}
+.btn-gold:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(255,215,0,.3)}
+.btn-ghost{background:rgba(255,255,255,.07);color:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.12)}
+.btn-ghost:hover{background:rgba(255,255,255,.13)}
+.btn-sm{padding:6px 13px;font-size:.65rem}
+
+.upload-state{min-height:calc(100vh - 62px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:20px}
+.upload-card{background:rgba(255,255,255,.025);border:2px dashed rgba(255,215,0,.22);border-radius:22px;padding:52px 60px;text-align:center;cursor:pointer;transition:.3s;max-width:500px;width:100%}
+.upload-card:hover,.upload-card.drag-over{border-color:#ffd700;background:rgba(255,215,0,.04);transform:translateY(-4px);box-shadow:0 20px 60px rgba(255,215,0,.08)}
+.upload-icon{font-size:46px;margin-bottom:18px;display:block}
+.upload-card h2{font-size:1.2rem;font-weight:800;margin-bottom:8px}
+.upload-card .upload-desc{color:rgba(255,255,255,.4);font-size:.78rem;line-height:1.65;margin-bottom:22px}
+.upload-or{color:rgba(255,255,255,.2);font-size:.7rem;margin:14px 0}
+.columns-hint{max-width:500px;width:100%;background:rgba(255,215,0,.04);border:1px solid rgba(255,215,0,.1);border-radius:12px;padding:15px 20px;font-size:.7rem;color:rgba(255,255,255,.4);line-height:2}
+.columns-hint strong{color:#ffd700}
+
+.main-state{display:none;height:calc(100vh - 62px);flex-direction:row;overflow:hidden}
+
+.sidebar{width:272px;min-width:272px;background:rgba(0,0,0,.18);border-right:1px solid rgba(255,255,255,.05);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-head{padding:14px 16px 10px;border-bottom:1px solid rgba(255,255,255,.05)}
+.sidebar-head-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sidebar-head-top h3{font-size:.7rem;font-weight:700;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:1.5px}
+.badge{background:rgba(255,215,0,.15);color:#ffd700;border-radius:10px;padding:2px 8px;font-size:.62rem;font-weight:700}
+.sidebar-search{position:relative}
+.sidebar-search input{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:7px 10px 7px 30px;color:#fff;font-family:'Montserrat',sans-serif;font-size:.7rem;outline:none;transition:.2s}
+.sidebar-search input:focus{border-color:rgba(255,215,0,.3);background:rgba(255,255,255,.07)}
+.sidebar-search input::placeholder{color:rgba(255,255,255,.22)}
+.search-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:13px;color:rgba(255,255,255,.22);pointer-events:none}
+.sidebar-bulk{padding:9px 14px;border-bottom:1px solid rgba(255,255,255,.04);display:flex;gap:7px}
+.school-list{flex:1;overflow-y:auto;padding:5px 0}
+.school-list::-webkit-scrollbar{width:3px}
+.school-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:2px}
+.school-item{padding:9px 12px;border-radius:8px;margin:2px 7px;transition:.15s;display:flex;align-items:center;gap:8px;cursor:pointer}
+.school-item:hover{background:rgba(255,255,255,.05)}
+.school-item.hl{background:rgba(255,215,0,.08);outline:1px solid rgba(255,215,0,.15)}
+.school-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,215,0,.45);flex-shrink:0}
+.school-info{flex:1;min-width:0}
+.school-name{font-size:.7rem;font-weight:600;color:rgba(255,255,255,.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.school-sub{font-size:.6rem;color:rgba(255,255,255,.3);margin-top:1px}
+.school-dl{background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.18);color:#ffd700;border-radius:6px;padding:3px 8px;font-size:.58rem;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;text-transform:uppercase;letter-spacing:.4px;opacity:0;transition:.2s;flex-shrink:0}
+.school-item:hover .school-dl{opacity:1}
+.school-dl:hover{background:rgba(255,215,0,.25)}
+
+.content{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.toolbar{padding:9px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,.04);background:#08081a;flex-shrink:0}
+.toolbar-group{display:flex;align-items:center;gap:7px}
+.toolbar label{color:rgba(255,255,255,.33);font-size:.67rem;white-space:nowrap}
+.toolbar select{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#fff;border-radius:6px;padding:5px 9px;font-size:.68rem;font-family:'Montserrat',sans-serif;outline:none;cursor:pointer}
+input[type=range]{accent-color:#ffd700;width:88px;cursor:pointer}
+.zoom-lbl{font-size:.68rem;color:rgba(255,255,255,.35);min-width:30px}
+.toolbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.sel-badge{background:rgba(255,215,0,.12);border:1px solid rgba(255,215,0,.2);color:#ffd700;border-radius:8px;padding:3px 10px;font-size:.65rem;font-weight:700;display:none}
+
+.prog-wrap{padding:8px 20px;background:#08081a;display:none;flex-shrink:0}
+.prog-bar{width:100%;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,#ffd700,#ff8c00);width:0%;transition:width .25s;border-radius:3px}
+.prog-text{font-size:.67rem;color:rgba(255,255,255,.4);margin-top:5px}
+
+.grid-area{flex:1;overflow-y:auto;padding:24px}
+.grid-area::-webkit-scrollbar{width:5px}
+.grid-area::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px}
+.empty-grid{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,.2);gap:10px;text-align:center}
+.empty-grid span{font-size:42px}
+.empty-grid p{font-size:.8rem}
+
+.inst-section{margin-bottom:36px;scroll-margin-top:16px}
+.inst-section-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:11px 14px;background:rgba(255,255,255,.03);border-radius:10px;border:1px solid rgba(255,255,255,.05)}
+.inst-section-head h3{font-size:.85rem;font-weight:800;color:#fff;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inst-cats{display:flex;gap:5px;flex-shrink:0}
+.cat-pill{background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.18);color:#ffd700;border-radius:20px;padding:2px 9px;font-size:.58rem;font-weight:700;text-transform:uppercase}
+.inst-actions{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.sel-all-lbl{display:flex;align-items:center;gap:5px;font-size:.63rem;color:rgba(255,255,255,.38);cursor:pointer;user-select:none;white-space:nowrap}
+.sel-all-lbl input{accent-color:#ffd700;cursor:pointer;width:13px;height:13px}
+.cards-row{display:flex;flex-wrap:wrap;gap:18px}
+
+.card-wrap{position:relative;cursor:pointer;transition:.2s;flex-shrink:0}
+.card-wrap:hover{transform:translateY(-3px)}
+.card-scale-box{transform-origin:top left;overflow:hidden;border-radius:8px;display:block;border:2px solid transparent;transition:border-color .15s}
+.card-wrap.selected .card-scale-box{border-color:#ffd700}
+.card-check{position:absolute;top:8px;left:8px;z-index:30;width:20px;height:20px;border:2px solid rgba(255,255,255,.55);border-radius:5px;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;transition:.15s}
+.card-wrap.selected .card-check{background:#ffd700;border-color:#ffd700}
+.card-check svg{opacity:0;transition:.15s}
+.card-wrap.selected .card-check svg{opacity:1}
+.card-cat{position:absolute;top:8px;right:8px;z-index:30;background:rgba(255,215,0,.88);color:#1a1a3e;border-radius:6px;padding:3px 9px;font-size:.58rem;font-weight:800;font-family:'Montserrat',sans-serif;text-transform:uppercase;letter-spacing:.4px}
+.card-dl{position:absolute;bottom:9px;right:9px;z-index:30;background:rgba(0,0,0,.72);border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:6px;padding:5px 11px;font-size:.6rem;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;text-transform:uppercase;letter-spacing:.4px;opacity:0;transition:.2s;display:flex;align-items:center;gap:4px}
+.card-wrap:hover .card-dl{opacity:1}
+.card-dl:hover{background:rgba(255,215,0,.85);color:#1a1a3e;border-color:transparent}
+.card-label{text-align:center;font-size:.6rem;color:rgba(255,255,255,.28);margin-top:6px}
+
+.fab{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(110px);background:linear-gradient(135deg,#1c1c52,#12123a);border:1px solid rgba(255,215,0,.22);border-radius:18px;padding:11px 20px;display:flex;align-items:center;gap:13px;box-shadow:0 16px 60px rgba(0,0,0,.6),0 0 40px rgba(255,215,0,.06);z-index:400;transition:transform .35s cubic-bezier(.34,1.56,.64,1);white-space:nowrap}
+.fab.visible{transform:translateX(-50%) translateY(0)}
+.fab-info{font-size:.78rem;font-weight:700}
+.fab-info em{color:#ffd700;font-style:normal}
+.fab-info span{color:rgba(255,255,255,.38);font-weight:400}
+.fab-sep{width:1px;height:22px;background:rgba(255,255,255,.1)}
+
+/* ── PODIUM CARD 1080×1080 ── */
+.card{width:1080px;height:1080px;position:relative;overflow:hidden;flex-shrink:0;background:#0e0e32}
+.card .bg{position:absolute;inset:0;background:linear-gradient(140deg,#0c0c3a 0%,#1a0a3a 30%,#0d0d2b 60%,#161640 100%)}
+.card .bg::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 600px 400px at 50% 52%,rgba(255,215,0,.05) 0%,transparent 70%),radial-gradient(ellipse 300px 300px at 18% 28%,rgba(100,120,255,.07) 0%,transparent 70%),radial-gradient(ellipse 280px 280px at 82% 18%,rgba(150,100,255,.05) 0%,transparent 70%)}
+.card .flag-mark{position:absolute;inset:auto -120px -110px auto;width:760px;height:760px;object-fit:contain;opacity:.13;filter:saturate(1.1);z-index:1;pointer-events:none}
+.card .geo-l{position:absolute;top:70px;left:-10px;width:120px;height:160px;opacity:.35}
+.card .geo-l i{display:block;position:absolute;border:2px solid rgba(100,160,255,.4);transform:rotate(45deg)}
+.card .geo-l i:nth-child(1){width:50px;height:50px;top:0;left:30px}
+.card .geo-l i:nth-child(2){width:38px;height:38px;top:38px;left:58px;border-color:rgba(160,100,255,.3)}
+.card .geo-l i:nth-child(3){width:32px;height:32px;top:64px;left:18px;border-color:rgba(80,200,255,.25)}
+.card .geo-r{position:absolute;top:0;right:0;width:200px;height:240px;opacity:.1;overflow:hidden}
+.card .geo-r::before,.card .geo-r::after{content:'';position:absolute;border:2px solid rgba(200,200,255,.5)}
+.card .geo-r::before{top:20px;right:-40px;width:180px;height:180px;transform:rotate(30deg)}
+.card .geo-r::after{top:60px;right:10px;width:130px;height:130px;transform:rotate(50deg)}
+.card .confetti{position:absolute;inset:0;pointer-events:none}
+.card .confetti i{position:absolute;border-radius:50%}
+.logo-block{position:absolute;top:8px;right:8px;z-index:4;display:flex;align-items:flex-start;justify-content:flex-end}
+.logo-block .trophy{width:340px;height:auto;object-fit:contain;filter:drop-shadow(0 14px 24px rgba(0,0,0,.28)) drop-shadow(0 0 10px rgba(255,255,255,.18)) drop-shadow(0 0 24px rgba(124,77,255,.22))}
+.hdr{position:absolute;top:38px;left:44px;text-align:left;z-index:4;max-width:520px}
+.hdr .g{font-family:'Bebas Neue',sans-serif;font-size:44px;color:#ff6b35;letter-spacing:3px;line-height:1;text-shadow:2px 2px 8px rgba(255,107,53,.25)}
+.hdr .cat{font-family:'Bebas Neue',sans-serif;font-size:68px;color:#fff;letter-spacing:5px;line-height:1.05;text-shadow:3px 3px 12px rgba(0,0,0,.4)}
+.inst-name{position:absolute;top:215px;left:0;right:0;text-align:center;z-index:4;padding:0 60px}
+.inst-name span{font-family:'Montserrat',sans-serif;font-weight:800;font-size:28px;color:#fff;letter-spacing:2px;text-transform:uppercase;text-shadow:0 2px 12px rgba(0,0,0,.5);display:inline-block;padding:8px 30px;border-radius:6px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.12)}
+.podium{position:absolute;bottom:190px;left:50%;transform:translateX(-50%);display:flex;align-items:flex-end;z-index:4}
+.place{display:flex;flex-direction:column;align-items:center}
+.pil{width:220px;display:flex;flex-direction:column;align-items:center}
+.pil-top{width:100%;height:36px;background:linear-gradient(180deg,#f5f5f5,#e0e0e0);border-radius:18px 18px 0 0;position:relative;z-index:2}
+.pil-body{width:100%;background:linear-gradient(180deg,#eaeaea 0%,#d4d4d4 50%,#c4c4c4 100%);display:flex;justify-content:center;align-items:center}
+.pil-body .num{font-family:'Bebas Neue',sans-serif;font-size:130px;color:#2a2a6e;line-height:1;opacity:.8}
+.glow{position:absolute;top:-50px;left:50%;transform:translateX(-50%);width:180px;height:100px;pointer-events:none;z-index:1}
+.glow.gold{background:radial-gradient(ellipse,rgba(255,215,0,.35) 0%,transparent 70%)}
+.glow.silver{background:radial-gradient(ellipse,rgba(192,192,192,.25) 0%,transparent 70%)}
+.glow.bronze{background:radial-gradient(ellipse,rgba(205,127,50,.25) 0%,transparent 70%)}
+.pinfo{text-align:center;margin-top:12px;z-index:4}
+.pinfo .code{font-weight:800;font-size:20px;color:#fff;letter-spacing:.5px}
+.pinfo .name{font-weight:600;font-size:15px;color:rgba(255,255,255,.6);margin-top:2px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pinfo .code.missing{color:rgba(255,255,255,.88)}
+.pinfo .name.missing{color:rgba(255,255,255,.78);font-style:italic}
+.sponsors{position:absolute;bottom:20px;left:48px;right:48px;min-height:118px;display:flex;justify-content:space-between;align-items:center;z-index:5;padding:18px 28px;border-radius:28px;background:rgba(12,12,42,.82);border:1px solid rgba(255,255,255,.13);box-shadow:0 16px 40px rgba(0,0,0,.35);gap:20px}
+.sponsor-slot{display:flex;align-items:center;justify-content:center;flex:0 0 auto;height:72px}
+.sponsor-slot img{display:block;width:100%;height:100%;object-fit:contain;object-position:center;image-rendering:auto}
+.sponsor-slot.bandera{width:70px}
+.sponsor-slot.mentora{width:230px}
+.sponsor-slot.progrentis{width:320px}
+.sponsor-slot.dominos{width:210px}
+</style>
+</head>
+<body>
+
+<div class="app-bar">
+  <div>
+    <h1>GENERADOR DE PODIOS</h1>
+    <div class="app-bar-sub">Ruta de Campeones Progrentis · República Dominicana</div>
+  </div>
+  <div class="app-bar-sep"></div>
+  <div class="app-status" id="appStatus">Cargando recursos…</div>
+  <div class="app-bar-actions">
+    <label class="btn btn-ghost" style="cursor:pointer">
+      📂 Subir XLSX
+      <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
+    </label>
+    <button class="btn btn-ghost" id="btnLoadSample">Cargar olimpiada.xlsx</button>
+  </div>
+</div>
+
+<div class="upload-state" id="uploadState" style="display:none">
+  <div class="upload-card" id="dropZone">
+    <span class="upload-icon">🏆</span>
+    <h2>Arrastra tu Excel aquí</h2>
+    <p class="upload-desc">Sube el archivo .xlsx con los resultados y los podios se generarán agrupados por colegio.</p>
+    <button class="btn btn-gold" onclick="document.getElementById('fileInput').click()">Seleccionar archivo XLSX</button>
+    <div class="upload-or">— o —</div>
+    <button class="btn btn-ghost" id="btnLoadSample2" style="margin:0 auto">Cargar olimpiada.xlsx automáticamente</button>
+  </div>
+  <div class="columns-hint">
+    <strong>Columnas requeridas:</strong> Categoria · Institucion · Posición (1–3) · Nombre · Codigo<br>
+    <strong>Categorías válidas:</strong> ABC · Mentor · Elite · PRO
+  </div>
+</div>
+
+<div class="main-state" id="mainState">
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <div class="sidebar-head-top">
+        <h3>Colegios</h3>
+        <span class="badge" id="schoolCount">0</span>
+      </div>
+      <div class="sidebar-search">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="sidebarSearch" placeholder="Buscar colegio…">
+      </div>
+    </div>
+    <div class="sidebar-bulk">
+      <button class="btn btn-gold btn-sm" id="btnExportAll" style="flex:1">⬇ Exportar todo</button>
+      <button class="btn btn-ghost btn-sm" id="btnClearSel" title="Limpiar selección">✕</button>
+    </div>
+    <div class="school-list" id="schoolList"></div>
+  </aside>
+
+  <div class="content">
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <label>Categoría:</label>
+        <select id="filterCat">
+          <option value="ALL">Todas</option>
+          <option>ABC</option><option>Mentor</option><option>Elite</option><option>PRO</option>
+        </select>
+      </div>
+      <div class="toolbar-group">
+        <label>Zoom:</label>
+        <input type="range" id="zoom" min="15" max="80" value="30">
+        <span class="zoom-lbl" id="zoomVal">30%</span>
+      </div>
+      <div class="toolbar-group">
+        <label>Exportación:</label>
+        <select id="exportQuality">
+          <option value="fast">Rápida</option>
+          <option value="balanced" selected>Balanceada</option>
+          <option value="high">Alta</option>
+        </select>
+      </div>
+      <div class="toolbar-right">
+        <span class="sel-badge" id="selBadge"></span>
+        <button class="btn btn-gold btn-sm" id="btnDlSel" style="display:none">⬇ Descargar selección</button>
+      </div>
+    </div>
+    <div class="prog-wrap" id="progWrap">
+      <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+      <div class="prog-text" id="progText"></div>
+    </div>
+    <div class="grid-area" id="grid"></div>
+  </div>
+</div>
+
+<div class="fab" id="fab">
+  <span class="fab-info"><em id="fabCount">0</em> <span>seleccionada(s)</span></span>
+  <div class="fab-sep"></div>
+  <button class="btn btn-gold btn-sm" id="fabDl">⬇ Descargar</button>
+  <button class="btn btn-ghost btn-sm" id="fabClear">✕</button>
+</div>
+
+<div id="renderArea" style="position:fixed;left:-9999px;top:0;z-index:-1;pointer-events:none"></div>
+
+<script>
+'use strict';
+
+// ── UTILS ──────────────────────────────────────────────────────────────────
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const CAT_ORDER = ['ABC', 'Mentor', 'Elite', 'PRO'];
+const CARD_SIZE = 1080;
+const XLSX_ACCEPT = {
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+  'application/vnd.ms-excel': ['.xls']
+};
+const FIELD_ALIASES = {
+  categoria: ['categoria', 'category'],
+  institucion: ['institucion', 'institucion educativa', 'institucion_educativa'],
+  posicion: ['posicion', 'puesto', 'pos'],
+  codigo: ['codigo', 'code'],
+  nombre: ['nombre', 'name']
+};
+const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const EXPORT_SCALE_BY_QUALITY = { fast: 1, balanced: 1.5, high: 2 };
+const EXPORT_YIELD_EVERY = 4;
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let dataMap = null;           // { inst → { cat → [{pos,code,name}] } }
+let ZOOM    = 30;
+let exportQuality = 'balanced';
+const selected   = new Set();  // selected card IDs
+const sectionReg = new Map();  // inst → { wraps, checkbox }
+const cardReg    = new Map();  // id → wrap
+const renderBlobCache = new Map(); // quality:id -> Blob
+
+// ── ASSET STORE ────────────────────────────────────────────────────────────
+const trophy = { gold: 'copa.png', silver: 'copa.png', bronze: 'copa.png' };
+const img    = { bandera: 'bandera.webp', mentora: 'Mentora.png',
+                 progrentis: 'Progrentis.png', dominos: 'dominos.png', ruta: 'RUTA.png' };
+
+function imgToDataURL(src) {
+  return new Promise(resolve => {
+    const el = new Image();
+    el.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = el.naturalWidth; c.height = el.naturalHeight;
+        c.getContext('2d').drawImage(el, 0, 0);
+        resolve(c.toDataURL());
+      } catch { resolve(src); }
+    };
+    el.onerror = () => resolve(src);
+    el.src = src;
+  });
+}
+
+function tintCanvas(src, rM, gM, bM) {
+  const c = document.createElement('canvas');
+  c.width = src.naturalWidth; c.height = src.naturalHeight;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(src, 0, 0);
+  const id = ctx.getImageData(0, 0, c.width, c.height), d = id.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i+3] === 0) continue;
+    const L = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+    d[i] = Math.min(255, L*rM); d[i+1] = Math.min(255, L*gM); d[i+2] = Math.min(255, L*bM);
+  }
+  ctx.putImageData(id, 0, 0);
+  return c.toDataURL('image/png');
+}
+
+async function loadAllAssets() {
+  // Load copa.png once and tint three ways + all logos in parallel
+  const copaJob = new Promise(resolve => {
+    const el = new Image();
+    el.onload = () => {
+      try {
+        trophy.gold   = tintCanvas(el, 1.30, 0.95, 0.15);
+        trophy.silver = tintCanvas(el, 0.88, 0.90, 0.95);
+        trophy.bronze = tintCanvas(el, 1.20, 0.68, 0.32);
+      } catch(e) { console.warn('Trophy tint failed', e); }
+      resolve();
+    };
+    el.onerror = resolve;
+    el.src = 'copa.png';
+  });
+
+  await Promise.all([
+    copaJob,
+    ...Object.keys(img).map(async k => { img[k] = await imgToDataURL(img[k]); })
+  ]);
+}
+
+// ── STATUS & LIB CHECK ─────────────────────────────────────────────────────
+const DOM = {
+  appStatus: $('#appStatus'),
+  fileInput: $('#fileInput'),
+  uploadState: $('#uploadState'),
+  mainState: $('#mainState'),
+  schoolCount: $('#schoolCount'),
+  filterCat: $('#filterCat'),
+  zoom: $('#zoom'),
+  zoomVal: $('#zoomVal'),
+  exportQuality: $('#exportQuality'),
+  selBadge: $('#selBadge'),
+  btnDlSel: $('#btnDlSel'),
+  btnExportAll: $('#btnExportAll'),
+  btnClearSel: $('#btnClearSel'),
+  fab: $('#fab'),
+  fabCount: $('#fabCount'),
+  fabDl: $('#fabDl'),
+  fabClear: $('#fabClear'),
+  progWrap: $('#progWrap'),
+  progFill: $('#progFill'),
+  progText: $('#progText'),
+  grid: $('#grid'),
+  schoolList: $('#schoolList'),
+  sidebarSearch: $('#sidebarSearch'),
+  dropZone: $('#dropZone'),
+  renderArea: $('#renderArea'),
+  btnLoadSample: $('#btnLoadSample'),
+  btnLoadSample2: $('#btnLoadSample2')
+};
+const EXPORT_BUTTONS = [DOM.btnExportAll, DOM.btnDlSel, DOM.fabDl].filter(Boolean);
+const setStatus = msg => { DOM.appStatus.textContent = msg; };
+
+function hasLibs(opts = {}) {
+  if (typeof XLSX        === 'undefined') { setStatus('Error: librería Excel no cargada.');    return false; }
+  if (typeof html2canvas === 'undefined') { setStatus('Error: html2canvas no cargado.');        return false; }
+  if (opts.needZip && typeof JSZip === 'undefined') { setStatus('Error: JSZip no cargado.'); return false; }
+  return true;
+}
+
+const showUpload = () => { DOM.uploadState.style.display = 'flex'; DOM.mainState.style.display = 'none'; };
+const showMain   = () => { DOM.uploadState.style.display = 'none'; DOM.mainState.style.display = 'flex'; };
+
+// ── DATA ───────────────────────────────────────────────────────────────────
+const norm    = v => String(v ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+const normCat = v => { const r = norm(v).toUpperCase(); return r==='ABC'?'ABC':r==='MENTOR'?'Mentor':r==='ELITE'?'Elite':r==='PRO'?'PRO':''; };
+const safeName = v => String(v || 'podio').replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').replace(/\s+/g, ' ').trim();
+const slugify  = v => norm(v).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'inst';
+const emptyPlace = () => ({ code: 'NO APLICA', name: '', missing: true });
+const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => HTML_ESCAPE[ch]);
+
+function normalizeRow(row) {
+  const normalized = {};
+  for (const [key, value] of Object.entries(row || {})) normalized[norm(key).toLowerCase()] = value;
+  return normalized;
+}
+
+function buildDataMap(rows) {
+  const map = {};
+  for (const row of rows) {
+    const r = normalizeRow(row);
+    const get = field => {
+      const key = FIELD_ALIASES[field].find(alias => r[alias] !== undefined);
+      return key ? r[key] : '';
+    };
+    const cat  = normCat(get('categoria'));
+    const inst = String(get('institucion') || '').trim();
+    const pos  = parseInt(get('posicion'), 10);
+    const code = String(get('codigo') || '').trim();
+    const name = String(get('nombre') || '').trim();
+    if (!cat || !inst || pos < 1 || pos > 3) continue;
+    ((map[inst] ??= {})[cat] ??= []).push({ pos, code, name });
+  }
+  return map;
+}
+
+// ── FILE LOADING ───────────────────────────────────────────────────────────
+function readBuf(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload  = e => res(e.target.result);
+    r.onerror = () => rej(new Error('Error al leer el archivo.'));
+    r.readAsArrayBuffer(file);
+  });
+}
+
+function parseWorkbook(buffer, name) {
+  const wb = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+  if (!wb.SheetNames.length) throw new Error('El archivo no tiene hojas.');
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+  if (!rows.length) throw new Error('El archivo no tiene filas válidas.');
+  dataMap = buildDataMap(rows);
+  setStatus(`${name} · ${rows.length} registros cargados.`);
+  generate();
+  showMain();
+}
+
+async function loadFile(file) {
+  if (!file) return;
+  setStatus(`Cargando ${file.name}…`);
+  try { parseWorkbook(await readBuf(file), file.name); }
+  catch (e) { setStatus(`Error: ${e.message}`); }
+  finally { $('#fileInput').value = ''; }
+}
+
+async function pickFile() {
+  if (window.showOpenFilePicker) {
+    try {
+      const [h] = await window.showOpenFilePicker({ multiple: false, types: [{ description: 'Excel', accept: XLSX_ACCEPT }] });
+      return h.getFile();
+    } catch { return null; }
+  }
+  return new Promise(res => {
+    DOM.fileInput.value = '';
+    const prev = DOM.fileInput.onchange;
+    DOM.fileInput.onchange = e => { DOM.fileInput.onchange = prev; res(e.target.files[0] || null); };
+    DOM.fileInput.click();
+  });
+}
+
+async function loadSample() {
+  if (!hasLibs()) return;
+  if (location.protocol === 'file:') { const f = await pickFile(); if (f) await loadFile(f); return; }
+  setStatus('Cargando olimpiada.xlsx…');
+  try {
+    const r = await fetch('./olimpiada.xlsx', { cache: 'no-store' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    parseWorkbook(await r.arrayBuffer(), 'olimpiada.xlsx');
+  } catch (err) {
+    setStatus('Selecciona olimpiada.xlsx manualmente…');
+    const f = await pickFile();
+    if (f) await loadFile(f); else setStatus(`No se pudo cargar. ${err.message}`);
+  }
+}
+
+// ── ZOOM (rescale only, no DOM rebuild) ────────────────────────────────────
+function applyZoom() {
+  const scale = ZOOM / 100;
+  const size = Math.round(CARD_SIZE * scale);
+  for (const wrap of cardReg.values()) {
+    wrap.style.width  = `${size}px`;
+    wrap.style.height = `${size}px`;
+    wrap.querySelector('.card-scale-box').style.transform = `scale(${scale})`;
+  }
+}
+
+// ── SELECTION ──────────────────────────────────────────────────────────────
+function toggleCard(wrap) {
+  const id = wrap.dataset.id, on = !selected.has(id);
+  wrap.classList.toggle('selected', on);
+  on ? selected.add(id) : selected.delete(id);
+  updateSelUI();
+}
+
+function clearSel() {
+  for (const id of selected) cardReg.get(id)?.classList.remove('selected');
+  selected.clear();
+  updateSelUI();
+}
+
+function updateSelUI() {
+  const n = selected.size;
+  DOM.fab.classList.toggle('visible', n > 0);
+  DOM.selBadge.style.display = DOM.btnDlSel.style.display = n > 0 ? 'inline-flex' : 'none';
+  if (n > 0) {
+    DOM.fabCount.textContent = n;
+    DOM.selBadge.textContent = `${n} seleccionada${n !== 1 ? 's' : ''}`;
+  }
+  for (const { wraps, checkbox } of sectionReg.values()) {
+    if (!checkbox) continue;
+    const all = wraps.every(w => selected.has(w.dataset.id));
+    const any = wraps.some(w  => selected.has(w.dataset.id));
+    checkbox.indeterminate = any && !all;
+    checkbox.checked = all;
+  }
+}
+
+// ── GENERATE (only on data / filter change) ────────────────────────────────
+function generate() {
+  if (!dataMap) return;
+  const catFilter = DOM.filterCat.value;
+  const cats = catFilter === 'ALL' ? CAT_ORDER : [catFilter];
+
+  selected.clear();
+  sectionReg.clear();
+  cardReg.clear();
+  renderBlobCache.clear();
+
+  const gridFrag = document.createDocumentFragment();
+  const sbarFrag = document.createDocumentFragment();
+  let totalCards = 0, totalInsts = 0;
+  const scale = ZOOM / 100;
+  const cardPx = Math.round(CARD_SIZE * scale);
+
+  for (const inst of Object.keys(dataMap).sort()) {
+    const availCats = cats.filter(c => dataMap[inst][c]);
+    if (!availCats.length) continue;
+    totalInsts++;
+
+    const section = document.createElement('div');
+    section.className = 'inst-section';
+    section.id = `sec-${slugify(inst)}`;
+
+    // Header
+    const head = document.createElement('div');
+    head.className = 'inst-section-head';
+    const h3 = document.createElement('h3');
+    h3.textContent = inst; h3.title = inst;
+    const pills = document.createElement('div');
+    pills.className = 'inst-cats';
+    availCats.forEach(c => { const p = document.createElement('span'); p.className = 'cat-pill'; p.textContent = c; pills.appendChild(p); });
+    const actions = document.createElement('div');
+    actions.className = 'inst-actions';
+    const selLbl = document.createElement('label');
+    selLbl.className = 'sel-all-lbl';
+    const selCb = document.createElement('input');
+    selCb.type = 'checkbox'; selCb.className = 'sel-all-check';
+    selLbl.append(selCb, ' Selec. todos');
+    const dlBtn = document.createElement('button');
+    dlBtn.className = 'btn btn-ghost btn-sm'; dlBtn.textContent = '⬇ Descargar';
+    actions.append(selLbl, dlBtn);
+    head.append(h3, pills, actions);
+    section.appendChild(head);
+
+    // Cards
+    const row   = document.createElement('div');
+    row.className = 'cards-row';
+    const wraps = [];
+
+    for (const cat of availCats) {
+      const places = { 1: emptyPlace(), 2: emptyPlace(), 3: emptyPlace() };
+      for (const entry of dataMap[inst][cat]) {
+        if (entry.pos >= 1 && entry.pos <= 3 && places[entry.pos].missing) places[entry.pos] = entry;
+      }
+      const cardId = `card-${totalCards}`;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'card-wrap';
+      wrap.dataset.id = cardId; wrap.dataset.inst = inst; wrap.dataset.cat = cat;
+      wrap.style.cssText = `width:${cardPx}px;height:${cardPx}px`;
+
+      const box = document.createElement('div');
+      box.className = 'card-scale-box';
+      box.style.cssText = `width:${CARD_SIZE}px;height:${CARD_SIZE}px;transform:scale(${scale});transform-origin:top left`;
+      box.innerHTML = buildCard(cat, inst, places, totalCards);
+
+      const chk = document.createElement('div');
+      chk.className = 'card-check';
+      chk.innerHTML = `<svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5l3 3 5-5" stroke="#1a1a3e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+      const catBadge = document.createElement('div');
+      catBadge.className = 'card-cat'; catBadge.textContent = cat;
+
+      const dlCard = document.createElement('button');
+      dlCard.className = 'card-dl'; dlCard.textContent = '⬇ PNG';
+      dlCard.onclick = e => { e.stopPropagation(); exportOne(cardId, `${safeName(inst)}_${cat}`); };
+
+      const lbl = document.createElement('div');
+      lbl.className = 'card-label'; lbl.textContent = cat;
+
+      wrap.onclick = () => toggleCard(wrap);
+      wrap.append(box, chk, catBadge, dlCard, lbl);
+      row.appendChild(wrap);
+      wraps.push(wrap);
+      cardReg.set(cardId, wrap);
+      totalCards++;
+    }
+
+    sectionReg.set(inst, { wraps, checkbox: selCb });
+    section.appendChild(row);
+
+    // Wire section controls
+    selCb.onchange = () => {
+      for (const w of wraps) {
+        w.classList.toggle('selected', selCb.checked);
+        selCb.checked ? selected.add(w.dataset.id) : selected.delete(w.dataset.id);
+      }
+      updateSelUI();
+    };
+    dlBtn.onclick = () => exportBatch(wraps, `podios_${safeName(inst)}`);
+    gridFrag.appendChild(section);
+
+    // Sidebar item
+    const si = document.createElement('div');
+    si.className = 'school-item'; si.dataset.name = inst;
+    const dot  = document.createElement('div'); dot.className = 'school-dot';
+    const info = document.createElement('div'); info.className = 'school-info';
+    info.innerHTML = `<div class="school-name" title="${esc(inst)}">${esc(inst)}</div><div class="school-sub">${availCats.length} cat: ${esc(availCats.join(' · '))}</div>`;
+    const sdl  = document.createElement('button');
+    sdl.className = 'school-dl'; sdl.textContent = '⬇';
+    sdl.onclick = e => { e.stopPropagation(); exportBatch(wraps, `podios_${safeName(inst)}`); };
+    si.onclick = () => {
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      $$('.school-item').forEach(i => i.classList.remove('hl'));
+      si.classList.add('hl');
+    };
+    si.append(dot, info, sdl);
+    sbarFrag.appendChild(si);
+  }
+
+  DOM.grid.innerHTML = '';
+  DOM.schoolList.innerHTML = '';
+  if (totalCards) {
+    DOM.grid.appendChild(gridFrag);
+    DOM.schoolList.appendChild(sbarFrag);
+  } else {
+    DOM.grid.innerHTML = '<div class="empty-grid"><span>🔍</span><p>No se encontraron registros válidos.<br>Verifica las columnas del Excel.</p></div>';
+  }
+
+  DOM.schoolCount.textContent = totalInsts;
+  setStatus(`${totalCards} podio${totalCards !== 1 ? 's' : ''} · ${totalInsts} colegio${totalInsts !== 1 ? 's' : ''}`);
+  updateSelUI();
+}
+
+// ── BUILD CARD ─────────────────────────────────────────────────────────────
+const CONFETTI = ['#ffd700','#ff6b35','#00ccff','#ff4444','#7c4dff','#00e676','#ff80ab','#ffffff'];
+
+function confetti() {
+  let s = '';
+  for (let i = 0; i < 90; i++) {
+    const x = Math.random()*100, y = 22+Math.random()*42, sz = 2+Math.random()*6;
+    s += `<i style="left:${x}%;top:${y}%;width:${sz}px;height:${sz}px;background:${CONFETTI[i%8]};opacity:${.25+Math.random()*.45}"></i>`;
+  }
+  return s;
+}
+
+// Shared SVG hand shapes per position
+const HANDS = {
+  2: `<rect x="36" y="52" w="28" h="26" rx="12"/><rect x="18" y="32" w="64" h="30" rx="14"/><rect x="20" y="6" w="14" h="30" rx="7"/><rect x="36" y="2" w="14" h="33" rx="7"/><rect x="52" y="6" w="14" h="30" rx="7"/><rect x="68" y="12" w="12" h="25" rx="6"/><ellipse cx="13" cy="44" rx="9" ry="14" transform="rotate(12,13,44)"/><ellipse cx="27" cy="14" rx="4" ry="2.5" fill="rgba(255,255,255,.3)"/><ellipse cx="43" cy="10" rx="4" ry="2.5" fill="rgba(255,255,255,.3)"/><ellipse cx="59" cy="14" rx="4" ry="2.5" fill="rgba(255,255,255,.3)"/>`,
+  1: `<rect x="42" y="62" w="36" h="32" rx="14"/><rect x="22" y="38" w="76" h="36" rx="16"/><rect x="24" y="8" w="16" h="36" rx="8"/><rect x="42" y="2" w="16" h="40" rx="8"/><rect x="60" y="8" w="16" h="36" rx="8"/><rect x="78" y="16" w="14" h="30" rx="7"/><ellipse cx="16" cy="52" rx="11" ry="17" transform="rotate(12,16,52)"/><rect x="44" y="62" w="10" h="28" rx="10" fill="rgba(0,0,0,.07)"/><ellipse cx="32" cy="18" rx="5" ry="3" fill="rgba(255,255,255,.3)"/><ellipse cx="50" cy="12" rx="5" ry="3" fill="rgba(255,255,255,.3)"/><ellipse cx="68" cy="18" rx="5" ry="3" fill="rgba(255,255,255,.3)"/><ellipse cx="85" cy="26" rx="4" ry="2.5" fill="rgba(255,255,255,.3)"/>`,
+  3: `<rect x="32" y="46" w="26" h="22" rx="11"/><rect x="15" y="28" w="60" h="28" rx="13"/><rect x="17" y="5" w="13" h="27" rx="6"/><rect x="32" y="1" w="13" h="30" rx="6"/><rect x="47" y="5" w="13" h="27" rx="6"/><rect x="62" y="10" w="11" h="22" rx="5"/><ellipse cx="11" cy="38" rx="8" ry="13" transform="rotate(12,11,38)"/><ellipse cx="23" cy="12" rx="3.5" ry="2" fill="rgba(255,255,255,.3)"/><ellipse cx="38" cy="8" rx="3.5" ry="2" fill="rgba(255,255,255,.3)"/><ellipse cx="53" cy="12" rx="3.5" ry="2" fill="rgba(255,255,255,.3)"/>`,
+};
+
+// Expand shorthand w/h attrs to width/height (SVG requires full attribute names with fill)
+function svgHand(pos) {
+  return HANDS[pos]
+    .replace(/ w="/g, ' width="')
+    .replace(/ h="/g, ' height="')
+    .replace(/(<rect[^/]*\/>)/g, m => m.includes('fill=') ? m : m.replace('/>', ' fill="#e8a87c"/>'))
+    .replace(/(<ellipse[^/]*\/>)/g, m => m.includes('fill=') ? m : m.replace('/>', ' fill="#e8a87c"/>'));
+}
+
+const PLACE_CFG = [
+  { pos:2, trophySrc:()=>trophy.silver, w:96,  filter:'drop-shadow(0 8px 20px rgba(180,180,180,.5))',   svgW:100, svgH:75,  mt:6, glow:'silver', glowW:180, glowH:80,  glowNeg:40, pilH:170 },
+  { pos:1, trophySrc:()=>trophy.gold,   w:120, filter:'drop-shadow(0 10px 28px rgba(255,200,0,.7))',     svgW:120, svgH:90,  mt:7, glow:'gold',   glowW:200, glowH:100, glowNeg:50, pilH:230 },
+  { pos:3, trophySrc:()=>trophy.bronze, w:86,  filter:'drop-shadow(0 8px 18px rgba(160,90,30,.55))',     svgW:90,  svgH:65,  mt:5, glow:'bronze', glowW:170, glowH:70,  glowNeg:35, pilH:130 },
+];
+
+function renderPlace(cfg, p) {
+  const { pos, trophySrc, w, filter, svgW, svgH, mt, glow, glowW, glowH, glowNeg, pilH } = cfg;
+  const mc = p.missing ? ' missing' : '';
+  return `<div class="place">
+    <div class="hand" style="display:flex;flex-direction:column;align-items:center">
+      <img src="${trophySrc()}" alt="copa" style="width:${w}px;height:auto;filter:${filter};position:relative;z-index:2">
+      <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" style="margin-top:-${mt}px;display:block;position:relative;z-index:1">${svgHand(pos)}</svg>
+    </div>
+    <div class="pil">
+      <div class="glow ${glow}" style="position:relative;top:auto;left:auto;transform:none;width:${glowW}px;height:${glowH}px;margin-bottom:-${glowNeg}px"></div>
+      <div class="pil-top"></div>
+      <div class="pil-body" style="height:${pilH}px"><span class="num">${pos}</span></div>
+    </div>
+    <div class="pinfo">
+      <div class="code${mc}">${esc(p.code)}</div>
+      <div class="name${mc}">${esc(p.name)}</div>
+    </div>
+  </div>`;
+}
+
+function buildCard(cat, inst, places, idx) {
+  const instDisplay = inst.length > 42 ? inst.substring(0, 40) + '…' : inst;
+  const instFS = inst.length > 35 ? '22px' : inst.length > 25 ? '25px' : '28px';
+  return `
+  <div class="card" id="card-${idx}">
+    <div class="bg"></div>
+    <img class="flag-mark" src="${img.bandera}" alt="">
+    <div class="geo-l"><i></i><i></i><i></i></div><div class="geo-r"></div>
+    <div class="confetti">${confetti()}</div>
+    <div class="logo-block"><img class="trophy" src="${img.ruta}" alt="Copa Ruta de Campeones"></div>
+    <div class="hdr"><div class="g">GANADORES FASE INSTITUCIONAL</div><div class="cat">CATEGORÍA ${esc(cat.toUpperCase())}</div></div>
+    <div class="inst-name"><span style="font-size:${instFS}">${esc(instDisplay)}</span></div>
+    <div class="podium">${PLACE_CFG.map(cfg => renderPlace(cfg, places[cfg.pos])).join('')}</div>
+    <div class="sponsors">
+      <div class="sponsor-slot bandera"><img src="${img.bandera}" alt="Bandera RD"></div>
+      <div class="sponsor-slot mentora"><img src="${img.mentora}" alt="Grupo Mentora"></div>
+      <div class="sponsor-slot progrentis"><img src="${img.progrentis}" alt="Progrentis"></div>
+      <div class="sponsor-slot dominos"><img src="${img.dominos}" alt="Dominos"></div>
+    </div>
+  </div>`;
+}
+
+// ── EXPORT ─────────────────────────────────────────────────────────────────
+async function ensureImagesReady(root) {
+  const images = [...root.querySelectorAll('img')];
+  await Promise.all(images.map(imgEl => {
+    if (imgEl.complete && imgEl.naturalWidth > 0) {
+      return typeof imgEl.decode === 'function' ? imgEl.decode().catch(() => {}) : Promise.resolve();
+    }
+    return new Promise(resolve => {
+      const done = () => resolve();
+      imgEl.addEventListener('load', done, { once: true });
+      imgEl.addEventListener('error', done, { once: true });
+    });
+  }));
+}
+
+const nextFrame = () => new Promise(resolve => requestAnimationFrame(() => resolve()));
+
+async function renderCanvas(id) {
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const clone = el.cloneNode(true);
+  DOM.renderArea.innerHTML = '';
+  DOM.renderArea.appendChild(clone);
+  try {
+    await ensureImagesReady(clone);
+    return await html2canvas(clone, {
+      width: CARD_SIZE,
+      height: CARD_SIZE,
+      scale: EXPORT_SCALE_BY_QUALITY[exportQuality] || EXPORT_SCALE_BY_QUALITY.balanced,
+      backgroundColor: '#0e0e32',
+      useCORS: true,
+      logging: false
+    });
+  } catch (e) { console.error(e); setStatus('Error al renderizar.'); return null; }
+  finally { DOM.renderArea.innerHTML = ''; }
+}
+
+const toBlob = canvas => new Promise((res, rej) =>
+  canvas.toBlob(b => b ? res(b) : rej(new Error('No se pudo crear PNG.')), 'image/png'));
+
+async function getRenderedBlob(id) {
+  const cacheKey = `${exportQuality}:${id}`;
+  if (renderBlobCache.has(cacheKey)) return renderBlobCache.get(cacheKey);
+
+  const blobPromise = (async () => {
+    const canvas = await renderCanvas(id);
+    if (!canvas) throw new Error('No se pudo renderizar la tarjeta.');
+    return toBlob(canvas);
+  })();
+
+  renderBlobCache.set(cacheKey, blobPromise);
+  try {
+    return await blobPromise;
+  } catch (error) {
+    renderBlobCache.delete(cacheKey);
+    throw error;
+  }
+}
+
+async function exportOne(id, filename) {
+  if (!hasLibs()) return;
+  setStatus(`Exportando ${filename}…`);
+  try {
+    const blob = await getRenderedBlob(id);
+    const url = URL.createObjectURL(blob);
+    Object.assign(document.createElement('a'), { download: `${safeName(filename)}.png`, href: url }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    setStatus('PNG descargado.');
+  } catch (e) {
+    console.error(e);
+    setStatus(`Error: ${e.message}`);
+  }
+}
+
+async function exportBatch(wraps, zipName) {
+  if (!hasLibs({ needZip: true })) return;
+  const list = [...wraps];
+  if (!list.length) { setStatus('No hay tarjetas para exportar.'); return; }
+
+  EXPORT_BUTTONS.forEach(btn => { btn.disabled = true; });
+  DOM.progWrap.style.display = 'block';
+
+  const zip = new JSZip();
+  const folders = new Map();
+  try {
+    for (let i = 0; i < list.length; i++) {
+      const { dataset: { id, inst, cat } } = list[i];
+      DOM.progFill.style.width = `${Math.round(i / list.length * 100)}%`;
+      DOM.progText.textContent = `Procesando ${i+1}/${list.length}: ${inst} · ${cat} · ${DOM.exportQuality.options[DOM.exportQuality.selectedIndex].text}`;
+      const folderName = safeName(inst);
+      const folder = folders.get(folderName) || zip.folder(folderName);
+      folders.set(folderName, folder);
+      folder.file(`${cat}.png`, await getRenderedBlob(id));
+      if ((i + 1) % EXPORT_YIELD_EVERY === 0) await nextFrame();
+    }
+    DOM.progFill.style.width = '100%';
+    DOM.progText.textContent = 'Generando ZIP…';
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE', streamFiles: true });
+    const url  = URL.createObjectURL(blob);
+    Object.assign(document.createElement('a'), { download: `${safeName(zipName)}.zip`, href: url }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    setStatus(`ZIP exportado: ${list.length} podio${list.length !== 1 ? 's' : ''}.`);
+  } catch (e) {
+    console.error(e); setStatus(`Error: ${e.message}`);
+  } finally {
+    DOM.progWrap.style.display = 'none';
+    DOM.progFill.style.width = '0%';
+    EXPORT_BUTTONS.forEach(btn => { btn.disabled = false; });
+    updateSelUI();
+  }
+}
+
+// ── EVENTS ─────────────────────────────────────────────────────────────────
+DOM.fileInput.onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (!hasLibs()) { e.target.value = ''; return; }
+  await loadFile(f);
+};
+
+DOM.btnLoadSample.onclick = loadSample;
+DOM.btnLoadSample2.onclick = loadSample;
+
+DOM.zoom.oninput = e => { ZOOM = +e.target.value; DOM.zoomVal.textContent = `${ZOOM}%`; applyZoom(); };
+DOM.exportQuality.onchange = e => { exportQuality = e.target.value; };
+DOM.filterCat.onchange = () => { if (dataMap) generate(); };
+DOM.sidebarSearch.oninput = e => {
+  const q = e.target.value.toLowerCase();
+  $$('.school-item').forEach(el => { el.style.display = el.dataset.name.toLowerCase().includes(q) ? '' : 'none'; });
+};
+
+const doExportSel = () => {
+  const wraps = [...selected].map(id => cardReg.get(id)).filter(Boolean);
+  exportBatch(wraps, 'podios_seleccionados');
+};
+DOM.btnDlSel.onclick = doExportSel;
+DOM.fabDl.onclick = doExportSel;
+DOM.fabClear.onclick = clearSel;
+DOM.btnClearSel.onclick = clearSel;
+DOM.btnExportAll.onclick = () => exportBatch(cardReg.values(), 'podios_todos');
+
+['dragenter','dragover'].forEach(e => DOM.dropZone.addEventListener(e, ev => { ev.preventDefault(); DOM.dropZone.classList.add('drag-over'); }));
+['dragleave','drop'].forEach(e  => DOM.dropZone.addEventListener(e, ev => { ev.preventDefault(); DOM.dropZone.classList.remove('drag-over'); }));
+DOM.dropZone.addEventListener('drop', async e => { const f = e.dataTransfer.files[0]; if (f && hasLibs()) await loadFile(f); });
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+window.addEventListener('load', async () => {
+  if (!hasLibs()) return;
+  exportQuality = DOM.exportQuality.value;
+  await loadAllAssets();
+  setStatus('Listo · Sube un archivo Excel para comenzar.');
+  showUpload();
+});
+</script>
+</body>
+</html>
